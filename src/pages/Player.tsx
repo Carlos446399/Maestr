@@ -16,6 +16,7 @@ import {
   List,
   X,
   ChevronRight,
+  Loader2,
 } from "lucide-react";
 
 // Proxy URL for HTTP content
@@ -44,6 +45,8 @@ const Player = () => {
   
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const [isBuffering, setIsBuffering] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   const [progress, setProgress] = useState(0);
   const [showControls, setShowControls] = useState(true);
   const [showEpisodeList, setShowEpisodeList] = useState(false);
@@ -202,12 +205,37 @@ const Player = () => {
     }
   };
 
-  const toggleFullscreen = () => {
-    if (containerRef.current) {
+  const toggleFullscreen = async () => {
+    const container = containerRef.current;
+    const video = videoRef.current;
+    
+    if (!container) return;
+    
+    try {
       if (document.fullscreenElement) {
-        document.exitFullscreen();
+        await document.exitFullscreen();
       } else {
-        containerRef.current.requestFullscreen();
+        // Try container fullscreen first (works on desktop)
+        if (container.requestFullscreen) {
+          await container.requestFullscreen();
+        } else if ((container as any).webkitRequestFullscreen) {
+          await (container as any).webkitRequestFullscreen();
+        } else if ((container as any).msRequestFullscreen) {
+          await (container as any).msRequestFullscreen();
+        } 
+        // For iOS Safari, use video element fullscreen
+        else if (video && (video as any).webkitEnterFullscreen) {
+          (video as any).webkitEnterFullscreen();
+        }
+      }
+    } catch (error) {
+      // Fallback for mobile: try video element fullscreen
+      if (video) {
+        if ((video as any).webkitEnterFullscreen) {
+          (video as any).webkitEnterFullscreen();
+        } else if ((video as any).requestFullscreen) {
+          await (video as any).requestFullscreen();
+        }
       }
     }
   };
@@ -306,6 +334,13 @@ const Player = () => {
         onTimeUpdate={handleTimeUpdate}
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
+        onWaiting={() => setIsBuffering(true)}
+        onPlaying={() => {
+          setIsBuffering(false);
+          setIsLoading(false);
+        }}
+        onCanPlay={() => setIsLoading(false)}
+        onLoadStart={() => setIsLoading(true)}
         onEnded={() => {
           // Remove from continue watching if completed
           if (content && type !== "TV") {
@@ -317,8 +352,22 @@ const Player = () => {
         }}
         onClick={togglePlay}
         autoPlay
+        playsInline
         crossOrigin="anonymous"
+        preload="auto"
       />
+
+      {/* Loading/Buffering Overlay */}
+      {(isLoading || isBuffering) && (
+        <div className="absolute inset-0 flex items-center justify-center bg-background/50 pointer-events-none z-10">
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 className="w-16 h-16 text-primary animate-spin" />
+            <span className="text-foreground text-sm">
+              {isLoading ? "Carregando..." : "Buffering..."}
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Controls Overlay */}
       <div
