@@ -7,15 +7,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 
-interface ExpirationNotification {
-  id: string;
-  message: string;
-  daysRemaining: number;
-  read: boolean;
-  createdAt: string;
-}
-
-const NOTIFICATIONS_KEY = "streamtv_expiration_notifications";
+const READ_STATE_KEY = "streamtv_expiration_read";
 
 interface NotificationBellProps {
   userEmail: string;
@@ -23,73 +15,51 @@ interface NotificationBellProps {
 }
 
 const NotificationBell = ({ userEmail, daysRemaining }: NotificationBellProps) => {
-  const [notifications, setNotifications] = useState<ExpirationNotification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const [isRead, setIsRead] = useState(false);
+  const [showNotification, setShowNotification] = useState(false);
 
   useEffect(() => {
+    // Always check fresh on every render
     checkExpirationWarning();
   }, [userEmail, daysRemaining]);
 
   const checkExpirationWarning = () => {
     if (daysRemaining === null || daysRemaining === undefined) {
-      setNotifications([]);
-      setUnreadCount(0);
+      setShowNotification(false);
       return;
     }
 
-    // Only show notification if 7 days or less remaining
+    // Show notification if 7 days or less remaining
     if (daysRemaining <= 7 && daysRemaining > 0) {
-      const notificationId = `expiration-${daysRemaining}`;
-      const stored = localStorage.getItem(`${NOTIFICATIONS_KEY}_${userEmail}`);
-      const existingNotifications: ExpirationNotification[] = stored ? JSON.parse(stored) : [];
+      setShowNotification(true);
       
-      // Remove old expiration notifications and add current one
-      const filteredNotifications = existingNotifications.filter(n => !n.id.startsWith('expiration-'));
-      
-      const newNotification: ExpirationNotification = {
-        id: notificationId,
-        message: daysRemaining === 1 
-          ? "Seu acesso expira amanhã! Renove para continuar assistindo."
-          : `Seu acesso expira em ${daysRemaining} dias. Renove para continuar assistindo.`,
-        daysRemaining: daysRemaining,
-        read: false,
-        createdAt: new Date().toISOString()
-      };
-      
-      const updatedNotifications = [newNotification, ...filteredNotifications];
-      setNotifications(updatedNotifications);
-      setUnreadCount(updatedNotifications.filter(n => !n.read).length);
-      localStorage.setItem(`${NOTIFICATIONS_KEY}_${userEmail}`, JSON.stringify(updatedNotifications));
-    } else {
-      // Clear expiration notifications if more than 7 days or expired
-      const stored = localStorage.getItem(`${NOTIFICATIONS_KEY}_${userEmail}`);
-      if (stored) {
-        const existingNotifications: ExpirationNotification[] = JSON.parse(stored);
-        const filtered = existingNotifications.filter(n => !n.id.startsWith('expiration-'));
-        setNotifications(filtered);
-        setUnreadCount(filtered.filter(n => !n.read).length);
-        localStorage.setItem(`${NOTIFICATIONS_KEY}_${userEmail}`, JSON.stringify(filtered));
+      // Check if user has read the notification for this specific day count
+      const readState = localStorage.getItem(`${READ_STATE_KEY}_${userEmail}`);
+      if (readState) {
+        const parsed = JSON.parse(readState);
+        // Reset read state if days changed (new day = new notification)
+        if (parsed.daysRemaining !== daysRemaining) {
+          setIsRead(false);
+          localStorage.removeItem(`${READ_STATE_KEY}_${userEmail}`);
+        } else {
+          setIsRead(parsed.read);
+        }
       } else {
-        setNotifications([]);
-        setUnreadCount(0);
+        setIsRead(false);
       }
+    } else {
+      setShowNotification(false);
+      // Clear read state when not in warning period
+      localStorage.removeItem(`${READ_STATE_KEY}_${userEmail}`);
     }
   };
 
-  const markAllAsRead = () => {
-    const updated = notifications.map((n) => ({ ...n, read: true }));
-    setNotifications(updated);
-    setUnreadCount(0);
-    localStorage.setItem(`${NOTIFICATIONS_KEY}_${userEmail}`, JSON.stringify(updated));
-  };
-
-  const handleNotificationClick = (notification: ExpirationNotification) => {
-    const updated = notifications.map((n) =>
-      n.id === notification.id ? { ...n, read: true } : n
+  const markAsRead = () => {
+    setIsRead(true);
+    localStorage.setItem(
+      `${READ_STATE_KEY}_${userEmail}`,
+      JSON.stringify({ daysRemaining, read: true })
     );
-    setNotifications(updated);
-    setUnreadCount(updated.filter((n) => !n.read).length);
-    localStorage.setItem(`${NOTIFICATIONS_KEY}_${userEmail}`, JSON.stringify(updated));
   };
 
   const getUrgencyColor = (days: number) => {
@@ -98,6 +68,15 @@ const NotificationBell = ({ userEmail, daysRemaining }: NotificationBellProps) =
     return "text-yellow-500";
   };
 
+  const getMessage = () => {
+    if (daysRemaining === 1) {
+      return "Seu acesso expira amanhã! Renove para continuar assistindo.";
+    }
+    return `Seu acesso expira em ${daysRemaining} dias. Renove para continuar assistindo.`;
+  };
+
+  const unreadCount = showNotification && !isRead ? 1 : 0;
+
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -105,7 +84,7 @@ const NotificationBell = ({ userEmail, daysRemaining }: NotificationBellProps) =
           <Bell className="w-5 h-5" />
           {unreadCount > 0 && (
             <span className="absolute -top-1 -right-1 w-5 h-5 bg-destructive text-destructive-foreground text-xs font-bold rounded-full flex items-center justify-center animate-pulse">
-              {unreadCount > 9 ? "9+" : unreadCount}
+              1
             </span>
           )}
         </Button>
@@ -117,15 +96,15 @@ const NotificationBell = ({ userEmail, daysRemaining }: NotificationBellProps) =
             <Button
               variant="ghost"
               size="sm"
-              onClick={markAllAsRead}
+              onClick={markAsRead}
               className="text-xs text-muted-foreground hover:text-foreground"
             >
-              Marcar todas como lidas
+              Marcar como lida
             </Button>
           )}
         </div>
         <div className="max-h-80 overflow-y-auto">
-          {notifications.length === 0 ? (
+          {!showNotification ? (
             <div className="p-6 text-center text-muted-foreground">
               <Bell className="w-10 h-10 mx-auto mb-2 opacity-50" />
               <p>Nenhuma notificação</p>
@@ -134,25 +113,24 @@ const NotificationBell = ({ userEmail, daysRemaining }: NotificationBellProps) =
               </p>
             </div>
           ) : (
-            notifications.map((notification) => (
-              <button
-                key={notification.id}
-                onClick={() => handleNotificationClick(notification)}
-                className={`w-full text-left p-4 border-b border-border/50 hover:bg-secondary/50 transition-colors ${
-                  !notification.read ? "bg-destructive/5" : ""
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  <AlertTriangle className={`w-5 h-5 mt-0.5 flex-shrink-0 ${getUrgencyColor(notification.daysRemaining)}`} />
-                  <div>
-                    <p className="text-sm text-foreground">{notification.message}</p>
-                    <p className={`text-xs mt-1 font-medium ${getUrgencyColor(notification.daysRemaining)}`}>
-                      {notification.daysRemaining <= 1 ? "Urgente!" : `${notification.daysRemaining} dias restantes`}
-                    </p>
-                  </div>
+            <button
+              onClick={markAsRead}
+              className={`w-full text-left p-4 border-b border-border/50 hover:bg-secondary/50 transition-colors ${
+                !isRead ? "bg-destructive/5" : ""
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                <AlertTriangle 
+                  className={`w-5 h-5 mt-0.5 flex-shrink-0 ${getUrgencyColor(daysRemaining!)}`} 
+                />
+                <div>
+                  <p className="text-sm text-foreground">{getMessage()}</p>
+                  <p className={`text-xs mt-1 font-medium ${getUrgencyColor(daysRemaining!)}`}>
+                    {daysRemaining! <= 1 ? "Urgente!" : `${daysRemaining} dias restantes`}
+                  </p>
                 </div>
-              </button>
-            ))
+              </div>
+            </button>
           )}
         </div>
       </PopoverContent>
