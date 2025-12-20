@@ -8,6 +8,7 @@ import Login from "./pages/Login";
 import Home from "./pages/Home";
 import Search from "./pages/Search";
 import Browse from "./pages/Browse";
+import Favorites from "./pages/Favorites";
 import ContentDetail from "./pages/ContentDetail";
 import Player from "./pages/Player";
 import NotFound from "./pages/NotFound";
@@ -50,6 +51,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <Search />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/favorites"
+        element={
+          <ProtectedRoute>
+            <Favorites />
           </ProtectedRoute>
         }
       />

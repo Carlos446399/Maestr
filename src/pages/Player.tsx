@@ -1,6 +1,7 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { Content, Episode, contentApi, episodeApi } from "@/services/baserow";
+import { playbackStorage } from "@/services/playbackStorage";
 import { Button } from "@/components/ui/button";
 import {
   ArrowLeft,
@@ -16,6 +17,9 @@ import {
   ChevronRight,
 } from "lucide-react";
 
+// Proxy URL for HTTP content
+const PROXY_URL = `https://zpnxudnmtkgktzzrafyo.supabase.co/functions/v1/video-proxy`;
+
 const Player = () => {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
@@ -27,6 +31,7 @@ const Player = () => {
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const progressSaveInterval = useRef<NodeJS.Timeout | null>(null);
   
   const [content, setContent] = useState<Content | null>(null);
   const [episodes, setEpisodes] = useState<Episode[]>([]);
@@ -46,6 +51,14 @@ const Player = () => {
     if (id) {
       loadContent(parseInt(id, 10));
     }
+    
+    return () => {
+      // Save progress on unmount
+      saveProgress();
+      if (progressSaveInterval.current) {
+        clearInterval(progressSaveInterval.current);
+      }
+    };
   }, [id]);
 
   useEffect(() => {
@@ -62,6 +75,66 @@ const Player = () => {
       setCurrentEpisode(ep || episodes[0]);
     }
   }, [episodes, episodeNum]);
+
+  // Start periodic progress saving
+  useEffect(() => {
+    if (type !== "TV") {
+      progressSaveInterval.current = setInterval(() => {
+        saveProgress();
+      }, 10000); // Save every 10 seconds
+    }
+    
+    return () => {
+      if (progressSaveInterval.current) {
+        clearInterval(progressSaveInterval.current);
+      }
+    };
+  }, [content, currentEpisode, type]);
+
+  // Restore playback position
+  useEffect(() => {
+    if (content && videoRef.current && type !== "TV") {
+      const saved = playbackStorage.get(
+        content.id,
+        type === "Serie" ? currentEpisode?.id : undefined
+      );
+      
+      if (saved && saved.currentTime > 0) {
+        // Wait for video to be ready
+        const handleCanPlay = () => {
+          if (videoRef.current && saved.currentTime < videoRef.current.duration - 10) {
+            videoRef.current.currentTime = saved.currentTime;
+          }
+          videoRef.current?.removeEventListener("canplay", handleCanPlay);
+        };
+        
+        videoRef.current.addEventListener("canplay", handleCanPlay);
+      }
+    }
+  }, [content, currentEpisode, type]);
+
+  const saveProgress = useCallback(() => {
+    if (!videoRef.current || !content || type === "TV") return;
+    
+    const video = videoRef.current;
+    if (video.duration && video.currentTime > 0) {
+      const progressPercent = (video.currentTime / video.duration) * 100;
+      
+      playbackStorage.save({
+        contentId: content.id,
+        episodeId: type === "Serie" ? currentEpisode?.id : undefined,
+        progress: progressPercent,
+        currentTime: video.currentTime,
+        duration: video.duration,
+        timestamp: Date.now(),
+        contentName: content.Nome,
+        contentCapa: content.Capa,
+        contentTipo: content.Tipo,
+        season: type === "Serie" ? season : undefined,
+        episode: type === "Serie" ? episodeNum : undefined,
+      });
+    }
+  }, [content, currentEpisode, type, season, episodeNum]);
 
   const loadContent = async (contentId: number) => {
     const data = await contentApi.getById(contentId);
@@ -84,10 +157,20 @@ const Player = () => {
   };
 
   const getVideoSource = (): string => {
+    let sourceUrl = "";
+    
     if (type === "Serie" && currentEpisode) {
-      return currentEpisode.Link;
+      sourceUrl = currentEpisode.Link;
+    } else {
+      sourceUrl = content?.Link || "";
     }
-    return content?.Link || "";
+    
+    // If the source is HTTP, use the proxy
+    if (sourceUrl && sourceUrl.startsWith("http://")) {
+      return `${PROXY_URL}?url=${encodeURIComponent(sourceUrl)}`;
+    }
+    
+    return sourceUrl;
   };
 
   const togglePlay = () => {
@@ -120,8 +203,8 @@ const Player = () => {
 
   const handleTimeUpdate = () => {
     if (videoRef.current) {
-      const progress = (videoRef.current.currentTime / videoRef.current.duration) * 100;
-      setProgress(isNaN(progress) ? 0 : progress);
+      const progressValue = (videoRef.current.currentTime / videoRef.current.duration) * 100;
+      setProgress(isNaN(progressValue) ? 0 : progressValue);
     }
   };
 
@@ -135,6 +218,7 @@ const Player = () => {
   };
 
   const handleNextEpisode = () => {
+    saveProgress();
     if (type === "Serie" && currentEpisode) {
       const currentIndex = episodes.findIndex((e) => e.id === currentEpisode.id);
       if (currentIndex < episodes.length - 1) {
@@ -145,6 +229,7 @@ const Player = () => {
   };
 
   const handlePreviousEpisode = () => {
+    saveProgress();
     if (type === "Serie" && currentEpisode) {
       const currentIndex = episodes.findIndex((e) => e.id === currentEpisode.id);
       if (currentIndex > 0) {
@@ -155,6 +240,7 @@ const Player = () => {
   };
 
   const selectEpisode = (episode: Episode) => {
+    saveProgress();
     navigate(`/player/${id}?type=Serie&season=${episode.Temporada}&episode=${episode["Episódio"]}`);
     setShowEpisodeList(false);
   };
@@ -177,8 +263,23 @@ const Player = () => {
   };
 
   const handleBack = () => {
+    saveProgress();
     navigate(-1);
   };
+
+  const formatTime = (seconds: number): string => {
+    const hours = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    
+    if (hours > 0) {
+      return `${hours}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+    }
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  const currentTime = videoRef.current?.currentTime || 0;
+  const duration = videoRef.current?.duration || 0;
 
   return (
     <div
@@ -194,8 +295,18 @@ const Player = () => {
         onTimeUpdate={handleTimeUpdate}
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
+        onEnded={() => {
+          // Remove from continue watching if completed
+          if (content && type !== "TV") {
+            playbackStorage.remove(
+              content.id,
+              type === "Serie" ? currentEpisode?.id : undefined
+            );
+          }
+        }}
         onClick={togglePlay}
         autoPlay
+        crossOrigin="anonymous"
       />
 
       {/* Controls Overlay */}
@@ -239,6 +350,12 @@ const Player = () => {
 
         {/* Bottom Controls */}
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-background/80 to-transparent p-6">
+          {/* Time Display */}
+          <div className="flex items-center justify-between text-sm text-muted-foreground mb-2">
+            <span>{formatTime(currentTime)}</span>
+            <span>{formatTime(duration)}</span>
+          </div>
+
           {/* Progress Bar */}
           <div
             className="w-full h-2 bg-secondary rounded-full cursor-pointer mb-6 group"

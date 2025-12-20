@@ -1,15 +1,31 @@
 import { Content } from "@/services/baserow";
-import { Play, Eye } from "lucide-react";
+import { Play, Eye, Heart } from "lucide-react";
+import { useState } from "react";
 
 interface ContentCardProps {
   content: Content;
   onClick: () => void;
+  isFavorite?: boolean;
+  onToggleFavorite?: (e: React.MouseEvent) => void;
+  showProgress?: boolean;
+  progress?: number;
 }
 
-const ContentCard = ({ content, onClick }: ContentCardProps) => {
+const ContentCard = ({ 
+  content, 
+  onClick, 
+  isFavorite = false, 
+  onToggleFavorite,
+  showProgress = false,
+  progress = 0,
+}: ContentCardProps) => {
+  const [isHovered, setIsHovered] = useState(false);
+
   return (
     <button
       onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       className="flex-shrink-0 w-48 group tv-focus rounded-xl overflow-hidden bg-card border border-border/30 hover:border-primary/50 transition-all duration-300"
     >
       {/* Poster */}
@@ -31,12 +47,39 @@ const ContentCard = ({ content, onClick }: ContentCardProps) => {
           </div>
         </div>
 
+        {/* Favorite Button */}
+        {onToggleFavorite && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleFavorite(e);
+            }}
+            className={`absolute top-2 left-2 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${
+              isFavorite 
+                ? "bg-primary text-primary-foreground" 
+                : "bg-background/70 text-foreground hover:bg-primary hover:text-primary-foreground"
+            } ${isHovered || isFavorite ? "opacity-100" : "opacity-0"}`}
+          >
+            <Heart className="w-4 h-4" fill={isFavorite ? "currentColor" : "none"} />
+          </button>
+        )}
+
         {/* Type Badge */}
         <div className="absolute top-2 right-2">
           <span className="px-2 py-1 text-xs font-medium bg-background/80 backdrop-blur rounded-md text-foreground">
             {content.Tipo}
           </span>
         </div>
+
+        {/* Progress Bar */}
+        {showProgress && progress > 0 && (
+          <div className="absolute bottom-0 left-0 right-0 h-1 bg-secondary">
+            <div 
+              className="h-full bg-primary transition-all duration-300"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        )}
       </div>
 
       {/* Info */}
@@ -46,7 +89,7 @@ const ContentCard = ({ content, onClick }: ContentCardProps) => {
         </h3>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Eye className="w-3 h-3" />
-          <span>{content.Views?.toLocaleString() || 0} views</span>
+          <span>{typeof content.Views === 'string' ? parseInt(content.Views, 10) || 0 : content.Views?.toLocaleString() || 0} views</span>
         </div>
       </div>
     </button>

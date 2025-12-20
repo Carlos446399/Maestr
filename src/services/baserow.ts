@@ -281,6 +281,73 @@ export const contentApi = {
     });
     return response.results;
   },
+  
+  async getFavorites(userEmail: string): Promise<Content[]> {
+    const filters = JSON.stringify({
+      filter_type: "AND",
+      filters: [{ type: "contains", field: "Favoritos", value: userEmail }],
+      groups: [],
+    });
+    
+    const response = await fetchFromBaserow<Content>(TABLES.CONTENTS, {
+      filters,
+      order_by: "-Data",
+    });
+    return response.results;
+  },
+  
+  async getHistory(userEmail: string): Promise<Content[]> {
+    const filters = JSON.stringify({
+      filter_type: "AND",
+      filters: [{ type: "contains", field: "Histórico", value: userEmail }],
+      groups: [],
+    });
+    
+    const response = await fetchFromBaserow<Content>(TABLES.CONTENTS, {
+      filters,
+      order_by: "-Edição",
+    });
+    return response.results;
+  },
+  
+  async addFavorite(id: number, currentFavorites: string | null, userEmail: string): Promise<void> {
+    const userEntry = `{"id":"${userEmail}"}`;
+    const favorites = currentFavorites || "";
+    
+    // Check if already favorited
+    if (favorites.includes(userEmail)) {
+      return;
+    }
+    
+    const newFavorites = favorites + userEntry;
+    await updateRow(TABLES.CONTENTS, id, { Favoritos: newFavorites });
+  },
+  
+  async removeFavorite(id: number, currentFavorites: string | null, userEmail: string): Promise<void> {
+    if (!currentFavorites) return;
+    
+    const userEntry = `{"id":"${userEmail}"}`;
+    const newFavorites = currentFavorites.replace(userEntry, "");
+    await updateRow(TABLES.CONTENTS, id, { Favoritos: newFavorites });
+  },
+  
+  async addToHistory(id: number, currentHistory: string | null, userEmail: string): Promise<void> {
+    const userEntry = `{"id":"${userEmail}"}`;
+    const history = currentHistory || "";
+    
+    // Check if already in history
+    if (history.includes(userEmail)) {
+      return;
+    }
+    
+    const newHistory = history + userEntry;
+    await updateRow(TABLES.CONTENTS, id, { Histórico: newHistory });
+  },
+  
+  isFavorite(favorites: string | null, userEmail: string): boolean {
+    if (!favorites) return false;
+    return favorites.includes(userEmail);
+  },
 };
 
 // Banner API

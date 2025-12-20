@@ -1,11 +1,13 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Banner, Content, bannerApi, contentApi } from "@/services/baserow";
+import { playbackStorage, PlaybackProgress } from "@/services/playbackStorage";
 import { Button } from "@/components/ui/button";
-import { Play, ChevronRight, Search, LogOut, Tv2, Clock, TrendingUp } from "lucide-react";
+import { ChevronRight, Search, LogOut, Tv2, Clock, TrendingUp, Heart, PlayCircle } from "lucide-react";
 import ContentCard from "@/components/ContentCard";
 import BannerCarousel from "@/components/BannerCarousel";
+import ContinueWatchingCard from "@/components/ContinueWatchingCard";
 
 const Home = () => {
   const { user, logout, checkSubscription, checkDeviceConnected } = useAuth();
@@ -13,6 +15,8 @@ const Home = () => {
   const [banners, setBanners] = useState<Banner[]>([]);
   const [recentContent, setRecentContent] = useState<Content[]>([]);
   const [popularContent, setPopularContent] = useState<Content[]>([]);
+  const [favorites, setFavorites] = useState<Content[]>([]);
+  const [continueWatching, setContinueWatching] = useState<PlaybackProgress[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -40,14 +44,21 @@ const Home = () => {
   const loadData = async () => {
     try {
       setIsLoading(true);
-      const [bannersData, recentData, popularData] = await Promise.all([
+      
+      // Load continue watching from localStorage
+      const continueData = playbackStorage.getContinueWatching();
+      setContinueWatching(continueData);
+      
+      const [bannersData, recentData, popularData, favoritesData] = await Promise.all([
         bannerApi.getAll(),
         contentApi.getRecent(10),
         contentApi.getMostWatched(10),
+        user?.Email ? contentApi.getFavorites(user.Email) : Promise.resolve([]),
       ]);
       setBanners(bannersData);
       setRecentContent(recentData);
       setPopularContent(popularData);
+      setFavorites(favoritesData.slice(0, 10));
     } catch (error) {
       console.error("Error loading data:", error);
     } finally {
@@ -67,8 +78,58 @@ const Home = () => {
     navigate(`/content/${content.id}`);
   };
 
-  const handleSeeMore = (type: "recent" | "popular") => {
-    navigate(`/browse?sort=${type === "recent" ? "-Data" : "-Views"}`);
+  const handleSeeMore = (type: "recent" | "popular" | "favorites") => {
+    if (type === "favorites") {
+      navigate("/favorites");
+    } else {
+      navigate(`/browse?sort=${type === "recent" ? "-Data" : "-Views"}`);
+    }
+  };
+
+  const handleContinueWatchingClick = (progress: PlaybackProgress) => {
+    if (progress.episodeId) {
+      navigate(`/player/${progress.contentId}?type=Serie&season=${progress.season}&episode=${progress.episode}`);
+    } else {
+      navigate(`/player/${progress.contentId}?type=${progress.contentTipo}`);
+    }
+  };
+
+  const handleToggleFavorite = async (content: Content, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!user?.Email) return;
+
+    const isFav = contentApi.isFavorite(content.Favoritos, user.Email);
+    
+    try {
+      if (isFav) {
+        await contentApi.removeFavorite(content.id, content.Favoritos, user.Email);
+        setFavorites((prev) => prev.filter((f) => f.id !== content.id));
+        // Update in recent and popular lists
+        const updateList = (list: Content[]) =>
+          list.map((c) =>
+            c.id === content.id
+              ? { ...c, Favoritos: (c.Favoritos || "").replace(`{"id":"${user.Email}"}`, "") }
+              : c
+          );
+        setRecentContent(updateList);
+        setPopularContent(updateList);
+      } else {
+        await contentApi.addFavorite(content.id, content.Favoritos, user.Email);
+        const updatedContent = { ...content, Favoritos: (content.Favoritos || "") + `{"id":"${user.Email}"}` };
+        setFavorites((prev) => [updatedContent, ...prev].slice(0, 10));
+        // Update in recent and popular lists
+        const updateList = (list: Content[]) =>
+          list.map((c) =>
+            c.id === content.id
+              ? { ...c, Favoritos: (c.Favoritos || "") + `{"id":"${user.Email}"}` }
+              : c
+          );
+        setRecentContent(updateList);
+        setPopularContent(updateList);
+      }
+    } catch (error) {
+      console.error("Error toggling favorite:", error);
+    }
   };
 
   const handleLogout = () => {
@@ -88,7 +149,7 @@ const Home = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-20">
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-b from-background via-background/80 to-transparent">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
@@ -100,6 +161,15 @@ const Home = () => {
           </div>
 
           <nav className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="lg"
+              onClick={() => navigate("/favorites")}
+              className="tv-focus"
+            >
+              <Heart className="w-5 h-5" />
+              Favoritos
+            </Button>
             <Button
               variant="ghost"
               size="lg"
@@ -129,6 +199,56 @@ const Home = () => {
           <BannerCarousel banners={banners} onBannerClick={handleBannerClick} />
         </section>
 
+        {/* Continue Watching */}
+        {continueWatching.length > 0 && (
+          <section className="px-6 mb-12 animate-slide-up">
+            <div className="flex items-center gap-3 mb-6">
+              <PlayCircle className="w-6 h-6 text-primary" />
+              <h2 className="text-2xl font-bold text-foreground">Continuar Assistindo</h2>
+            </div>
+            <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
+              {continueWatching.map((progress) => (
+                <ContinueWatchingCard
+                  key={`${progress.contentId}-${progress.episodeId || 0}`}
+                  progress={progress}
+                  onClick={() => handleContinueWatchingClick(progress)}
+                />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Favorites */}
+        {favorites.length > 0 && (
+          <section className="px-6 mb-12 animate-slide-up" style={{ animationDelay: "0.1s" }}>
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <Heart className="w-6 h-6 text-primary" />
+                <h2 className="text-2xl font-bold text-foreground">Meus Favoritos</h2>
+              </div>
+              <Button
+                variant="ghost"
+                onClick={() => handleSeeMore("favorites")}
+                className="tv-focus text-muted-foreground hover:text-foreground"
+              >
+                Ver Mais
+                <ChevronRight className="w-5 h-5" />
+              </Button>
+            </div>
+            <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
+              {favorites.map((content) => (
+                <ContentCard
+                  key={content.id}
+                  content={content}
+                  onClick={() => handleContentClick(content)}
+                  isFavorite={true}
+                  onToggleFavorite={(e) => handleToggleFavorite(content, e)}
+                />
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* Recent Content */}
         <section className="px-6 mb-12 animate-slide-up" style={{ animationDelay: "0.2s" }}>
           <div className="flex items-center justify-between mb-6">
@@ -151,6 +271,8 @@ const Home = () => {
                 key={content.id}
                 content={content}
                 onClick={() => handleContentClick(content)}
+                isFavorite={contentApi.isFavorite(content.Favoritos, user?.Email || "")}
+                onToggleFavorite={(e) => handleToggleFavorite(content, e)}
               />
             ))}
           </div>
@@ -178,26 +300,28 @@ const Home = () => {
                 key={content.id}
                 content={content}
                 onClick={() => handleContentClick(content)}
+                isFavorite={contentApi.isFavorite(content.Favoritos, user?.Email || "")}
+                onToggleFavorite={(e) => handleToggleFavorite(content, e)}
               />
             ))}
           </div>
         </section>
+      </main>
 
-        {/* User Info Bar */}
-        <div className="fixed bottom-0 left-0 right-0 bg-card/80 backdrop-blur border-t border-border/50 py-3 px-6">
-          <div className="container mx-auto flex items-center justify-between text-sm">
-            <div className="flex items-center gap-4">
-              <span className="text-muted-foreground">
-                Olá, <span className="text-foreground font-medium">{user?.Nome}</span>
-              </span>
-              <span className="text-muted-foreground">|</span>
-              <span className="text-muted-foreground">
-                Assinatura: <span className="text-primary font-medium">{user?.Restam}</span>
-              </span>
-            </div>
+      {/* User Info Bar */}
+      <div className="fixed bottom-0 left-0 right-0 bg-card/80 backdrop-blur border-t border-border/50 py-3 px-6 z-40">
+        <div className="container mx-auto flex items-center justify-between text-sm">
+          <div className="flex items-center gap-4">
+            <span className="text-muted-foreground">
+              Olá, <span className="text-foreground font-medium">{user?.Nome}</span>
+            </span>
+            <span className="text-muted-foreground">|</span>
+            <span className="text-muted-foreground">
+              Assinatura: <span className="text-primary font-medium">{user?.Restam}</span>
+            </span>
           </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 };
