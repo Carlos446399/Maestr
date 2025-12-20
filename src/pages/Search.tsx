@@ -198,12 +198,13 @@ const Search = () => {
             <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
           </div>
         ) : results.length > 0 ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 md:gap-6">
             {results.map((content) => (
               <ContentCard
                 key={content.id}
                 content={content}
                 onClick={() => handleContentClick(content)}
+                size="full"
               />
             ))}
           </div>
@@ -262,12 +263,13 @@ const Search = () => {
                 <TrendingUp className="w-5 h-5 text-primary" />
                 <h2 className="text-xl font-bold text-foreground">Sugestões</h2>
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 md:gap-6">
                 {suggestions.map((content) => (
                   <ContentCard
                     key={content.id}
                     content={content}
                     onClick={() => handleSuggestionClick(content)}
+                    size="full"
                   />
                 ))}
               </div>

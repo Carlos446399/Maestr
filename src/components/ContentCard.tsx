@@ -9,6 +9,7 @@ interface ContentCardProps {
   onToggleFavorite?: (e: React.MouseEvent) => void;
   showProgress?: boolean;
   progress?: number;
+  size?: "sm" | "md" | "full";
 }
 
 const ContentCard = ({ 
@@ -18,15 +19,22 @@ const ContentCard = ({
   onToggleFavorite,
   showProgress = false,
   progress = 0,
+  size = "md",
 }: ContentCardProps) => {
   const [isHovered, setIsHovered] = useState(false);
+
+  const sizeClasses = {
+    sm: "w-32 sm:w-36",
+    md: "w-36 sm:w-40",
+    full: "w-full",
+  };
 
   return (
     <button
       onClick={onClick}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className="flex-shrink-0 w-full group tv-focus rounded-xl overflow-hidden bg-card border border-border/30 hover:border-primary/50 transition-all duration-300"
+      className={`flex-shrink-0 ${sizeClasses[size]} group tv-focus rounded-xl overflow-hidden bg-card border border-border/30 hover:border-primary/50 transition-all duration-300`}
     >
       {/* Poster */}
       <div className="relative aspect-[2/3] overflow-hidden">
@@ -42,8 +50,8 @@ const ContentCard = ({
         
         {/* Play Button */}
         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
-          <div className="w-14 h-14 rounded-full gradient-hero flex items-center justify-center shadow-lg transform scale-90 group-hover:scale-100 transition-transform duration-300">
-            <Play className="w-6 h-6 text-primary-foreground ml-1" fill="currentColor" />
+          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full gradient-hero flex items-center justify-center shadow-lg transform scale-90 group-hover:scale-100 transition-transform duration-300">
+            <Play className="w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground ml-1" fill="currentColor" />
           </div>
         </div>
 
@@ -54,19 +62,19 @@ const ContentCard = ({
               e.stopPropagation();
               onToggleFavorite(e);
             }}
-            className={`absolute top-2 left-2 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${
+            className={`absolute top-2 left-2 w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center transition-all duration-300 ${
               isFavorite 
                 ? "bg-primary text-primary-foreground" 
                 : "bg-background/70 text-foreground hover:bg-primary hover:text-primary-foreground"
             } ${isHovered || isFavorite ? "opacity-100" : "opacity-0"}`}
           >
-            <Heart className="w-4 h-4" fill={isFavorite ? "currentColor" : "none"} />
+            <Heart className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill={isFavorite ? "currentColor" : "none"} />
           </button>
         )}
 
         {/* Type Badge */}
         <div className="absolute top-2 right-2">
-          <span className="px-2 py-1 text-xs font-medium bg-background/80 backdrop-blur rounded-md text-foreground">
+          <span className="px-1.5 py-0.5 sm:px-2 sm:py-1 text-[10px] sm:text-xs font-medium bg-background/80 backdrop-blur rounded-md text-foreground">
             {content.Tipo}
           </span>
         </div>
@@ -83,11 +91,11 @@ const ContentCard = ({
       </div>
 
       {/* Info */}
-      <div className="p-3">
-        <h3 className="font-semibold text-foreground text-sm truncate mb-1 group-hover:text-primary transition-colors">
+      <div className="p-2 sm:p-3">
+        <h3 className="font-semibold text-foreground text-xs sm:text-sm truncate mb-1 group-hover:text-primary transition-colors">
           {content.Nome}
         </h3>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs text-muted-foreground">
           <Eye className="w-3 h-3" />
           <span>{typeof content.Views === 'string' ? parseInt(content.Views, 10) || 0 : content.Views?.toLocaleString() || 0} views</span>
         </div>
