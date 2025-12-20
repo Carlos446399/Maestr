@@ -118,12 +118,13 @@ const ContentDetail = () => {
                 {content.Tipo}
               </span>
               {content.Categoria && content.Categoria.split(",").map((cat) => cat.trim()).filter(Boolean).map((category, index) => (
-                <span
+                <button
                   key={index}
-                  className="px-3 py-1 text-sm font-medium bg-secondary text-secondary-foreground rounded-full"
+                  onClick={() => navigate(`/browse?category=${encodeURIComponent(category)}`)}
+                  className="px-3 py-1 text-sm font-medium bg-secondary text-secondary-foreground rounded-full hover:bg-primary hover:text-primary-foreground transition-colors cursor-pointer"
                 >
                   {category}
-                </span>
+                </button>
               ))}
               {content.Idioma && (
                 <span className="px-3 py-1 text-sm font-medium bg-secondary text-secondary-foreground rounded-full">
