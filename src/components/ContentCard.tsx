@@ -26,7 +26,7 @@ const ContentCard = ({
       onClick={onClick}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className="flex-shrink-0 w-48 group tv-focus rounded-xl overflow-hidden bg-card border border-border/30 hover:border-primary/50 transition-all duration-300"
+      className="flex-shrink-0 w-full group tv-focus rounded-xl overflow-hidden bg-card border border-border/30 hover:border-primary/50 transition-all duration-300"
     >
       {/* Poster */}
       <div className="relative aspect-[2/3] overflow-hidden">
