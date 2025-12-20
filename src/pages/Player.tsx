@@ -414,16 +414,26 @@ const Player = () => {
               </Button>
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
               {/* Episode List (for series) */}
               {type === "Serie" && (
                 <Button
                   variant="ghost"
                   onClick={() => setShowEpisodeList(true)}
-                  className="tv-focus"
+                  className="tv-focus hidden sm:flex"
                 >
                   <List className="w-5 h-5 mr-2" />
                   Episódios
+                </Button>
+              )}
+              {type === "Serie" && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowEpisodeList(true)}
+                  className="tv-focus sm:hidden"
+                >
+                  <List className="w-5 h-5" />
                 </Button>
               )}
 
@@ -432,15 +442,25 @@ const Player = () => {
                 <Button
                   variant="ghost"
                   onClick={() => setShowChannelList(true)}
-                  className="tv-focus"
+                  className="tv-focus hidden sm:flex"
                 >
                   <List className="w-5 h-5 mr-2" />
                   Canais
                 </Button>
               )}
+              {type === "TV" && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowChannelList(true)}
+                  className="tv-focus sm:hidden"
+                >
+                  <List className="w-5 h-5" />
+                </Button>
+              )}
 
-              {/* Fullscreen */}
-              <Button variant="ghost" size="icon" onClick={toggleFullscreen} className="tv-focus">
+              {/* Fullscreen - always visible */}
+              <Button variant="ghost" size="icon" onClick={toggleFullscreen} className="tv-focus flex-shrink-0">
                 <Maximize className="w-6 h-6" />
               </Button>
             </div>

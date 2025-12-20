@@ -6,17 +6,20 @@ import { playbackStorage, PlaybackProgress } from "@/services/playbackStorage";
 import { Button } from "@/components/ui/button";
 import { 
   ChevronRight, Search, Tv2, Clock, TrendingUp, Heart, PlayCircle, User,
-  Sword, Drama, Laugh, Ghost, Heart as HeartIcon, Rocket, Users, Sparkles, Film, Tv
+  Sword, Drama, Laugh, Ghost, Heart as HeartIcon, Rocket, Users, Sparkles, Film, Tv, Menu, X
 } from "lucide-react";
 import ContentCard from "@/components/ContentCard";
 import BannerCarousel from "@/components/BannerCarousel";
 import ContinueWatchingCard from "@/components/ContinueWatchingCard";
 import CategoryCard from "@/components/CategoryCard";
 import NotificationBell from "@/components/NotificationBell";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const Home = () => {
   const { user, logout, checkSubscription, checkDeviceConnected } = useAuth();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [banners, setBanners] = useState<Banner[]>([]);
   const [recentContent, setRecentContent] = useState<Content[]>([]);
   const [popularContent, setPopularContent] = useState<Content[]>([]);
@@ -203,46 +206,103 @@ const Home = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20">
+      {/* Mobile Sidebar */}
+      {isMobile && sidebarOpen && (
+        <div className="fixed inset-0 z-[60]">
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
+          <div className="absolute top-0 left-0 bottom-0 w-64 bg-card border-r border-border animate-slide-up">
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl gradient-hero flex items-center justify-center">
+                  <Tv2 className="w-5 h-5 text-primary-foreground" />
+                </div>
+                <span className="text-xl font-bold text-foreground">StreamTV</span>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(false)}>
+                <X className="w-5 h-5" />
+              </Button>
+            </div>
+            <nav className="flex flex-col p-4 gap-2">
+              <Button
+                variant="ghost"
+                className="justify-start w-full"
+                onClick={() => { navigate("/favorites"); setSidebarOpen(false); }}
+              >
+                <Heart className="w-5 h-5 mr-3" />
+                Favoritos
+              </Button>
+              <Button
+                variant="ghost"
+                className="justify-start w-full"
+                onClick={() => { navigate("/search"); setSidebarOpen(false); }}
+              >
+                <Search className="w-5 h-5 mr-3" />
+                Pesquisar
+              </Button>
+              <Button
+                variant="ghost"
+                className="justify-start w-full"
+                onClick={() => { navigate("/profile"); setSidebarOpen(false); }}
+              >
+                <User className="w-5 h-5 mr-3" />
+                Perfil
+              </Button>
+            </nav>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-b from-background via-background/80 to-transparent">
-        <div className="container mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="container mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
+            {isMobile && (
+              <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)} className="mr-1">
+                <Menu className="w-5 h-5" />
+              </Button>
+            )}
             <div className="w-10 h-10 rounded-xl gradient-hero flex items-center justify-center">
               <Tv2 className="w-5 h-5 text-primary-foreground" />
             </div>
-            <span className="text-xl font-bold text-foreground">StreamTV</span>
+            <span className="text-xl font-bold text-foreground hidden sm:inline">StreamTV</span>
           </div>
 
-          <nav className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="lg"
-              onClick={() => navigate("/favorites")}
-              className="tv-focus"
-            >
-              <Heart className="w-5 h-5" />
-              Favoritos
-            </Button>
-            <Button
-              variant="ghost"
-              size="lg"
-              onClick={() => navigate("/search")}
-              className="tv-focus"
-            >
-              <Search className="w-5 h-5" />
-              Pesquisar
-            </Button>
-            {user?.Email && <NotificationBell userEmail={user.Email} />}
-            <Button
-              variant="ghost"
-              size="lg"
-              onClick={() => navigate("/profile")}
-              className="tv-focus"
-            >
-              <User className="w-5 h-5" />
-              Perfil
-            </Button>
-          </nav>
+          {/* Desktop Navigation */}
+          {!isMobile && (
+            <nav className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="lg"
+                onClick={() => navigate("/favorites")}
+                className="tv-focus"
+              >
+                <Heart className="w-5 h-5" />
+                Favoritos
+              </Button>
+              <Button
+                variant="ghost"
+                size="lg"
+                onClick={() => navigate("/search")}
+                className="tv-focus"
+              >
+                <Search className="w-5 h-5" />
+                Pesquisar
+              </Button>
+              {user?.Email && <NotificationBell userEmail={user.Email} />}
+              <Button
+                variant="ghost"
+                size="lg"
+                onClick={() => navigate("/profile")}
+                className="tv-focus"
+              >
+                <User className="w-5 h-5" />
+                Perfil
+              </Button>
+            </nav>
+          )}
+
+          {/* Mobile: Only notification bell */}
+          {isMobile && user?.Email && <NotificationBell userEmail={user.Email} />}
         </div>
       </header>
 
