@@ -269,8 +269,9 @@ export const contentApi = {
     return response.results;
   },
   
-  async incrementViews(id: number, currentViews: number): Promise<void> {
-    await updateRow(TABLES.CONTENTS, id, { Views: currentViews + 1 });
+  async incrementViews(id: number, currentViews: number | string): Promise<void> {
+    const views = typeof currentViews === 'string' ? parseInt(currentViews, 10) || 0 : currentViews;
+    await updateRow(TABLES.CONTENTS, id, { Views: views + 1 });
   },
   
   async getAll(orderBy = "-Data"): Promise<Content[]> {
