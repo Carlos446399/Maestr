@@ -370,7 +370,7 @@ const Home = () => {
                 <ChevronRight className="w-5 h-5" />
               </Button>
             </div>
-            <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
+            <div className="flex gap-3 sm:gap-4 overflow-x-auto pb-4 scrollbar-hide">
               {favorites.map((content) => (
                 <ContentCard
                   key={content.id}
@@ -378,6 +378,7 @@ const Home = () => {
                   onClick={() => handleContentClick(content)}
                   isFavorite={true}
                   onToggleFavorite={(e) => handleToggleFavorite(content, e)}
+                  size="sm"
                 />
               ))}
             </div>
@@ -400,7 +401,7 @@ const Home = () => {
               <ChevronRight className="w-5 h-5" />
             </Button>
           </div>
-          <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
+          <div className="flex gap-3 sm:gap-4 overflow-x-auto pb-4 scrollbar-hide">
             {recentContent.map((content) => (
               <ContentCard
                 key={content.id}
@@ -408,6 +409,7 @@ const Home = () => {
                 onClick={() => handleContentClick(content)}
                 isFavorite={contentApi.isFavorite(content.Favoritos, user?.Email || "")}
                 onToggleFavorite={(e) => handleToggleFavorite(content, e)}
+                size="sm"
               />
             ))}
           </div>
@@ -429,7 +431,7 @@ const Home = () => {
               <ChevronRight className="w-5 h-5" />
             </Button>
           </div>
-          <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
+          <div className="flex gap-3 sm:gap-4 overflow-x-auto pb-4 scrollbar-hide">
             {popularContent.map((content) => (
               <ContentCard
                 key={content.id}
@@ -437,6 +439,7 @@ const Home = () => {
                 onClick={() => handleContentClick(content)}
                 isFavorite={contentApi.isFavorite(content.Favoritos, user?.Email || "")}
                 onToggleFavorite={(e) => handleToggleFavorite(content, e)}
+                size="sm"
               />
             ))}
           </div>
@@ -459,7 +462,7 @@ const Home = () => {
                 <ChevronRight className="w-5 h-5" />
               </Button>
             </div>
-            <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
+            <div className="flex gap-3 sm:gap-4 overflow-x-auto pb-4 scrollbar-hide">
               {recentMovies.map((content) => (
                 <ContentCard
                   key={content.id}
@@ -467,6 +470,7 @@ const Home = () => {
                   onClick={() => handleContentClick(content)}
                   isFavorite={contentApi.isFavorite(content.Favoritos, user?.Email || "")}
                   onToggleFavorite={(e) => handleToggleFavorite(content, e)}
+                  size="sm"
                 />
               ))}
             </div>
@@ -490,7 +494,7 @@ const Home = () => {
                 <ChevronRight className="w-5 h-5" />
               </Button>
             </div>
-            <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
+            <div className="flex gap-3 sm:gap-4 overflow-x-auto pb-4 scrollbar-hide">
               {recentSeries.map((content) => (
                 <ContentCard
                   key={content.id}
@@ -498,6 +502,7 @@ const Home = () => {
                   onClick={() => handleContentClick(content)}
                   isFavorite={contentApi.isFavorite(content.Favoritos, user?.Email || "")}
                   onToggleFavorite={(e) => handleToggleFavorite(content, e)}
+                  size="sm"
                 />
               ))}
             </div>

@@ -288,6 +288,7 @@ const Browse = () => {
                   key={content.id}
                   content={content}
                   onClick={() => handleContentClick(content)}
+                  size="full"
                 />
               ))}
             </div>
