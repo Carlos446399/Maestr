@@ -1,95 +1,78 @@
 import { useState, useEffect } from "react";
-import { Bell } from "lucide-react";
+import { Bell, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { contentApi, Content } from "@/services/baserow";
-import { useNavigate } from "react-router-dom";
 
-interface Notification {
+interface ExpirationNotification {
   id: string;
-  contentId: number;
-  contentName: string;
   message: string;
-  date: string;
+  daysRemaining: number;
   read: boolean;
+  createdAt: string;
 }
 
-const NOTIFICATIONS_KEY = "streamtv_notifications";
-const LAST_CHECK_KEY = "streamtv_last_notification_check";
+const NOTIFICATIONS_KEY = "streamtv_expiration_notifications";
 
-const NotificationBell = ({ userEmail }: { userEmail: string }) => {
-  const navigate = useNavigate();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+interface NotificationBellProps {
+  userEmail: string;
+  daysRemaining?: number | null;
+}
+
+const NotificationBell = ({ userEmail, daysRemaining }: NotificationBellProps) => {
+  const [notifications, setNotifications] = useState<ExpirationNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
-    loadNotifications();
-    checkForNewEpisodes();
-  }, [userEmail]);
+    checkExpirationWarning();
+  }, [userEmail, daysRemaining]);
 
-  const loadNotifications = () => {
-    const stored = localStorage.getItem(`${NOTIFICATIONS_KEY}_${userEmail}`);
-    if (stored) {
-      const parsed: Notification[] = JSON.parse(stored);
-      setNotifications(parsed);
-      setUnreadCount(parsed.filter((n) => !n.read).length);
+  const checkExpirationWarning = () => {
+    if (daysRemaining === null || daysRemaining === undefined) {
+      setNotifications([]);
+      setUnreadCount(0);
+      return;
     }
-  };
 
-  const checkForNewEpisodes = async () => {
-    try {
-      // Get series from user's history
-      const history = await contentApi.getHistory(userEmail);
-      const seriesInHistory = history.filter((c) => c.Tipo === "Serie");
-
-      if (seriesInHistory.length === 0) return;
-
-      const lastCheck = localStorage.getItem(`${LAST_CHECK_KEY}_${userEmail}`);
-      const lastCheckDate = lastCheck ? new Date(lastCheck) : new Date(0);
-      const now = new Date();
-
-      // Check for series with recent edits (new episodes)
-      const newNotifications: Notification[] = [];
-
-      for (const series of seriesInHistory) {
-        if (series.Edição) {
-          const editDate = new Date(series.Edição);
-          if (editDate > lastCheckDate) {
-            const existingNotification = notifications.find(
-              (n) => n.contentId === series.id && n.date === series.Edição
-            );
-
-            if (!existingNotification) {
-              newNotifications.push({
-                id: `${series.id}-${series.Edição}`,
-                contentId: series.id,
-                contentName: series.Nome,
-                message: `Novo episódio disponível de "${series.Nome}"`,
-                date: series.Edição,
-                read: false,
-              });
-            }
-          }
-        }
+    // Only show notification if 7 days or less remaining
+    if (daysRemaining <= 7 && daysRemaining > 0) {
+      const notificationId = `expiration-${daysRemaining}`;
+      const stored = localStorage.getItem(`${NOTIFICATIONS_KEY}_${userEmail}`);
+      const existingNotifications: ExpirationNotification[] = stored ? JSON.parse(stored) : [];
+      
+      // Remove old expiration notifications and add current one
+      const filteredNotifications = existingNotifications.filter(n => !n.id.startsWith('expiration-'));
+      
+      const newNotification: ExpirationNotification = {
+        id: notificationId,
+        message: daysRemaining === 1 
+          ? "Seu acesso expira amanhã! Renove para continuar assistindo."
+          : `Seu acesso expira em ${daysRemaining} dias. Renove para continuar assistindo.`,
+        daysRemaining: daysRemaining,
+        read: false,
+        createdAt: new Date().toISOString()
+      };
+      
+      const updatedNotifications = [newNotification, ...filteredNotifications];
+      setNotifications(updatedNotifications);
+      setUnreadCount(updatedNotifications.filter(n => !n.read).length);
+      localStorage.setItem(`${NOTIFICATIONS_KEY}_${userEmail}`, JSON.stringify(updatedNotifications));
+    } else {
+      // Clear expiration notifications if more than 7 days or expired
+      const stored = localStorage.getItem(`${NOTIFICATIONS_KEY}_${userEmail}`);
+      if (stored) {
+        const existingNotifications: ExpirationNotification[] = JSON.parse(stored);
+        const filtered = existingNotifications.filter(n => !n.id.startsWith('expiration-'));
+        setNotifications(filtered);
+        setUnreadCount(filtered.filter(n => !n.read).length);
+        localStorage.setItem(`${NOTIFICATIONS_KEY}_${userEmail}`, JSON.stringify(filtered));
+      } else {
+        setNotifications([]);
+        setUnreadCount(0);
       }
-
-      if (newNotifications.length > 0) {
-        const updatedNotifications = [...newNotifications, ...notifications].slice(0, 20);
-        setNotifications(updatedNotifications);
-        setUnreadCount(updatedNotifications.filter((n) => !n.read).length);
-        localStorage.setItem(
-          `${NOTIFICATIONS_KEY}_${userEmail}`,
-          JSON.stringify(updatedNotifications)
-        );
-      }
-
-      localStorage.setItem(`${LAST_CHECK_KEY}_${userEmail}`, now.toISOString());
-    } catch (error) {
-      console.error("Error checking for new episodes:", error);
     }
   };
 
@@ -100,29 +83,19 @@ const NotificationBell = ({ userEmail }: { userEmail: string }) => {
     localStorage.setItem(`${NOTIFICATIONS_KEY}_${userEmail}`, JSON.stringify(updated));
   };
 
-  const handleNotificationClick = (notification: Notification) => {
-    // Mark as read
+  const handleNotificationClick = (notification: ExpirationNotification) => {
     const updated = notifications.map((n) =>
       n.id === notification.id ? { ...n, read: true } : n
     );
     setNotifications(updated);
     setUnreadCount(updated.filter((n) => !n.read).length);
     localStorage.setItem(`${NOTIFICATIONS_KEY}_${userEmail}`, JSON.stringify(updated));
-
-    // Navigate to content
-    navigate(`/content/${notification.contentId}`);
   };
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-
-    if (days === 0) return "Hoje";
-    if (days === 1) return "Ontem";
-    if (days < 7) return `Há ${days} dias`;
-    return date.toLocaleDateString("pt-BR");
+  const getUrgencyColor = (days: number) => {
+    if (days <= 1) return "text-destructive";
+    if (days <= 3) return "text-orange-500";
+    return "text-yellow-500";
   };
 
   return (
@@ -131,7 +104,7 @@ const NotificationBell = ({ userEmail }: { userEmail: string }) => {
         <Button variant="ghost" size="lg" className="tv-focus relative">
           <Bell className="w-5 h-5" />
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-primary-foreground text-xs font-bold rounded-full flex items-center justify-center animate-pulse">
+            <span className="absolute -top-1 -right-1 w-5 h-5 bg-destructive text-destructive-foreground text-xs font-bold rounded-full flex items-center justify-center animate-pulse">
               {unreadCount > 9 ? "9+" : unreadCount}
             </span>
           )}
@@ -157,7 +130,7 @@ const NotificationBell = ({ userEmail }: { userEmail: string }) => {
               <Bell className="w-10 h-10 mx-auto mb-2 opacity-50" />
               <p>Nenhuma notificação</p>
               <p className="text-xs mt-1">
-                Assista séries para receber alertas de novos episódios
+                Você será avisado quando seu acesso estiver próximo de expirar
               </p>
             </div>
           ) : (
@@ -166,17 +139,15 @@ const NotificationBell = ({ userEmail }: { userEmail: string }) => {
                 key={notification.id}
                 onClick={() => handleNotificationClick(notification)}
                 className={`w-full text-left p-4 border-b border-border/50 hover:bg-secondary/50 transition-colors ${
-                  !notification.read ? "bg-primary/5" : ""
+                  !notification.read ? "bg-destructive/5" : ""
                 }`}
               >
                 <div className="flex items-start gap-3">
-                  {!notification.read && (
-                    <div className="w-2 h-2 mt-2 rounded-full bg-primary flex-shrink-0" />
-                  )}
-                  <div className={!notification.read ? "" : "ml-5"}>
+                  <AlertTriangle className={`w-5 h-5 mt-0.5 flex-shrink-0 ${getUrgencyColor(notification.daysRemaining)}`} />
+                  <div>
                     <p className="text-sm text-foreground">{notification.message}</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {formatDate(notification.date)}
+                    <p className={`text-xs mt-1 font-medium ${getUrgencyColor(notification.daysRemaining)}`}>
+                      {notification.daysRemaining <= 1 ? "Urgente!" : `${notification.daysRemaining} dias restantes`}
                     </p>
                   </div>
                 </div>
