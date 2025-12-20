@@ -9,6 +9,7 @@ interface AuthContextType {
   logout: () => void;
   checkSubscription: () => boolean;
   checkDeviceConnected: () => boolean;
+  getDaysRemaining: () => number | null;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -121,6 +122,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
   };
 
+  const getDaysRemaining = (): number | null => {
+    if (!user) return null;
+    
+    const restam = user.Restam;
+    const dias = user.Dias;
+    
+    if (!restam || !dias) return null;
+    
+    const dayMatch = restam.match(/(\d+)/);
+    if (!dayMatch) return null;
+    
+    const restamValue = parseInt(dayMatch[1], 10);
+    const diasRestantes = dias - restamValue;
+    
+    return diasRestantes > 0 ? diasRestantes : 0;
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -131,6 +149,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         logout,
         checkSubscription,
         checkDeviceConnected,
+        getDaysRemaining,
       }}
     >
       {children}

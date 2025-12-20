@@ -17,7 +17,7 @@ import HorizontalScrollList from "@/components/HorizontalScrollList";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 const Home = () => {
-  const { user, logout, checkSubscription, checkDeviceConnected } = useAuth();
+  const { user, logout, checkSubscription, checkDeviceConnected, getDaysRemaining } = useAuth();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -289,7 +289,7 @@ const Home = () => {
                 <Search className="w-5 h-5" />
                 Pesquisar
               </Button>
-              {user?.Email && <NotificationBell userEmail={user.Email} />}
+              {user?.Email && <NotificationBell userEmail={user.Email} daysRemaining={getDaysRemaining()} />}
               <Button
                 variant="ghost"
                 size="lg"
@@ -303,7 +303,7 @@ const Home = () => {
           )}
 
           {/* Mobile: Only notification bell */}
-          {isMobile && user?.Email && <NotificationBell userEmail={user.Email} />}
+          {isMobile && user?.Email && <NotificationBell userEmail={user.Email} daysRemaining={getDaysRemaining()} />}
         </div>
       </header>
 
