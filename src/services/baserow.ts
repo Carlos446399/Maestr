@@ -1,7 +1,7 @@
 // Baserow API Types and Service
 
 const API_URL = "https://api.baserow.io/api";
-const TOKEN = "x3JhLgiECULSREjT6yt54FohKeKbUiSF";
+const TOKEN = "token_baserow";
 
 // Table IDs
 const TABLES = {
