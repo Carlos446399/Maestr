@@ -227,7 +227,10 @@ export const episodeApi = {
   async getByContentAndSeason(nome: string, temporada: number): Promise<Episode[]> {
     const filters = JSON.stringify({
       filter_type: "AND",
-      filters: [{ type: "equal", field: "Nome", value: nome }, { type: "equal", field: "Temporada", temporada }],
+      filters: [
+        { type: "equal", field: "Nome", value: nome }, 
+        { type: "equal", field: "Temporada", value: temporada }
+      ],
       groups: [],
     });
     const response = await fetchFromBaserow<Episode>(TABLES.EPISODES, { filters, order_by: "Episódio" });
