@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 
 // Proxy URL for HTTP content
-const PROXY_URL = "https://seu-proxy.workers.dev/";
+const PROXY_URL = "https://proxy.tcavalcanti93.workers.dev/";
 const PROXY_KEY = "IyusyTzNhDZDtZFi7jj72CIV3sIEZu6rcLR3xgvBbxJ";
 
 const Player = () => {
@@ -33,8 +33,10 @@ const Player = () => {
   const hasAddedToHistory = useRef(false);
 
   const type = searchParams.get("type") || "Filme";
-  const season = parseInt(searchParams.get("season") || "1", 10);
-  const episodeNum = parseInt(searchParams.get("episode") || "1", 10);
+  const seasonParam = searchParams.get("season") || "1";
+  const episodeParam = searchParams.get("episode") || "1";
+  const season = parseInt(seasonParam, 10);
+  const episodeNum = parseInt(episodeParam, 10);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -91,20 +93,26 @@ const Player = () => {
     };
   }, [id]);
 
+  // Load episodes when season changes
   useEffect(() => {
     if (type === "TV") {
       loadTVChannels();
     } else if (type === "Serie" && content?.Nome) {
       loadEpisodes(content.Nome, season);
     }
-  }, [type, content, season]);
+  }, [type, content, season, seasonParam]);
 
+  // Update current episode when episodeNum changes (via URL)
   useEffect(() => {
-    if (episodes.length > 0) {
+    if (episodes.length > 0 && type === "Serie") {
       const ep = episodes.find((e) => e["Episódio"] === episodeNum);
-      setCurrentEpisode(ep || episodes[0]);
+      if (ep) {
+        setCurrentEpisode(ep);
+      } else if (episodes.length > 0) {
+        setCurrentEpisode(episodes[0]);
+      }
     }
-  }, [episodes, episodeNum]);
+  }, [episodes, episodeNum, episodeParam, type]);
 
   // Start periodic progress saving
   useEffect(() => {
@@ -907,3 +915,4 @@ const Player = () => {
 };
 
 export default Player;
+
