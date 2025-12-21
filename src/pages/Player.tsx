@@ -105,10 +105,10 @@ const Player = () => {
   // Update current episode when episodeNum changes (via URL)
   useEffect(() => {
     if (episodes.length > 0 && type === "Serie") {
-      const ep = episodes.find((e) => e["Episódio"] === episodeNum);
+      const ep = episodes.find((e) => Number(e["Episódio"]) === episodeNum);
       if (ep) {
         setCurrentEpisode(ep);
-      } else if (episodes.length > 0) {
+      } else {
         setCurrentEpisode(episodes[0]);
       }
     }
@@ -368,7 +368,8 @@ const Player = () => {
       const currentIndex = episodes.findIndex((e) => e.id === currentEpisode.id);
       if (currentIndex < episodes.length - 1) {
         const nextEp = episodes[currentIndex + 1];
-        navigate(`/player/${id}?type=Serie&season=${season}&episode=${nextEp["Episódio"]}`);
+        const nextEpisodeNum = Number(nextEp["Episódio"]);
+        navigate(`/player/${id}?type=Serie&season=${season}&episode=${nextEpisodeNum}`);
       }
     }
   };
@@ -379,14 +380,17 @@ const Player = () => {
       const currentIndex = episodes.findIndex((e) => e.id === currentEpisode.id);
       if (currentIndex > 0) {
         const prevEp = episodes[currentIndex - 1];
-        navigate(`/player/${id}?type=Serie&season=${season}&episode=${prevEp["Episódio"]}`);
+        const prevEpisodeNum = Number(prevEp["Episódio"]);
+        navigate(`/player/${id}?type=Serie&season=${season}&episode=${prevEpisodeNum}`);
       }
     }
   };
 
   const selectEpisode = (episode: Episode) => {
     saveProgress();
-    navigate(`/player/${id}?type=Serie&season=${episode.Temporada}&episode=${episode["Episódio"]}`);
+    const nextSeason = Number(episode.Temporada);
+    const nextEpisodeNum = Number(episode["Episódio"]);
+    navigate(`/player/${id}?type=Serie&season=${nextSeason}&episode=${nextEpisodeNum}`);
     setShowEpisodeList(false);
   };
 
@@ -915,4 +919,3 @@ const Player = () => {
 };
 
 export default Player;
-
