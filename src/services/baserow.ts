@@ -332,3 +332,4 @@ export const categoryApi = {
     return response.results;
   },
 };
+
