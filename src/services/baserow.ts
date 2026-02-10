@@ -5,17 +5,15 @@ const API_URL = "https://api.baserow.io/api";
 const TOKEN = "token_baserow";
 const PROXY_URL = "https://api-anyflix.vercel.app/api/baserow";
 
-// IDs das Tabelas
 const TABLES = {
-  CONTENTS: 106744,
-  EPISODES: 106745,
-  BANNERS: 224159,
-  USERS: 189557,
-  CATEGORIES: 224166,
+  CONTENTS: 5272,
+  EPISODES: 5273,
+  BANNERS: 5275,
+  USERS: 5276,
+  CATEGORIES: 5274,
 };
 
 // --- Interfaces ---
-// (Mantidas conforme seu original)
 
 export interface User { id: number; order: string; Nome: string; Email: string; Senha: string; Data: string; Pagamento: string; Hoje: string; Dias: number; Logins: number; IMEI: string; Restam: string; }
 export interface Content { id: number; order: string; Nome: string; Capa: string; Sinopse: string; Categoria: string; Views: number; Tipo: string; Data: string; Link: string; Idioma: string; Favoritos: string; Temporadas: number; Histórico: string; Edição: string; }
@@ -25,10 +23,9 @@ export interface Category { id: number; order: string; Nome: string; }
 export interface DeviceInfo { IMEI: string; Dispositivo: string; }
 interface BaserowResponse<T> { count: number; next: string | null; previous: string | null; results: T[]; }
 
-// --- Motor de Requisições (Compatível com seu Proxy Vercel) ---
+// --- Motor de Requisições ---
 
 function useProxy(url: string): boolean {
-  // Ativa o proxy apenas se a URL do Baserow for HTTP (sem S)
   return url.startsWith("http://") && !url.startsWith("https://");
 }
 
@@ -37,19 +34,14 @@ async function performRequest<T>(fullUrl: string, method: string = "GET", body?:
   let fetchOptions: RequestInit;
 
   if (useProxy(API_URL)) {
-    // 1. O Proxy recebe URL, Token e Method via Query String
     const encodedUrl = encodeURIComponent(fullUrl);
     fetchUrl = `${PROXY_URL}?token=${TOKEN}&url=${encodedUrl}&method=${method}`;
-    
-    // 2. O Proxy recebe os dados (body) via POST para preencher o req.body
     fetchOptions = {
       method: "POST", 
       headers: { "Content-Type": "application/json" },
-      // Mesmo que o método original seja GET, enviamos POST ao proxy para levar o corpo se houver
       body: body ? JSON.stringify(body) : undefined,
     };
   } else {
-    // Conexão direta padrão
     fetchUrl = fullUrl;
     fetchOptions = {
       method: method,
@@ -62,38 +54,51 @@ async function performRequest<T>(fullUrl: string, method: string = "GET", body?:
   }
 
   const response = await fetch(fetchUrl, fetchOptions);
-  
-  if (!response.ok) {
-    throw new Error(`Baserow API error: ${response.status}`);
-  }
-  
-  // Tratamento para respostas vazias (ex: DELETE 204)
+  if (!response.ok) throw new Error(`Baserow API error: ${response.status}`);
   if (response.status === 204) return {} as T;
-
   return response.json();
 }
 
-// --- Funções Auxiliares Genéricas ---
-
-async function fetchFromBaserow<T>(
-  tableId: number,
-  params: Record<string, string> = {}
-): Promise<BaserowResponse<T>> {
+async function fetchFromBaserow<T>(tableId: number, params: Record<string, string> = {}): Promise<BaserowResponse<T>> {
   const queryParams = new URLSearchParams(params);
   const url = `${API_URL}/database/rows/table/${tableId}/?user_field_names=true&${queryParams}`;
   return performRequest<BaserowResponse<T>>(url, "GET");
 }
 
-async function updateRow<T>(
-  tableId: number,
-  rowId: number,
-  data: Partial<T>
-): Promise<T> {
+async function updateRow<T>(tableId: number, rowId: number, data: Partial<T>): Promise<T> {
   const url = `${API_URL}/database/rows/table/${tableId}/${rowId}/?user_field_names=true`;
   return performRequest<T>(url, "PATCH", data);
 }
 
-// --- Utilitários ---
+// --- Utilitários de Validação e Formatação ---
+
+/**
+ * Lógica Corrigida: Verifica se ainda resta tempo de acesso.
+ * Trata formatos: "2 days, 10:30:00", "1 day, 00:00:00" ou "05:15:30"
+ */
+export function hasRemainingTime(restam: string | null): boolean {
+  if (!restam || typeof restam !== 'string') return false;
+
+  const str = restam.toLowerCase().trim();
+
+  // Se houver a palavra "day", certamente ainda resta tempo (pelo menos 1 dia)
+  if (str.includes("day")) {
+    return true;
+  }
+
+  // Se não houver "day", o formato é "HH:MM:SS.ssss"
+  // Verificamos se as horas, minutos ou segundos são maiores que zero
+  const parts = str.split(':');
+  if (parts.length >= 2) {
+    const hours = parseInt(parts[0] || "0", 10);
+    const minutes = parseInt(parts[1] || "0", 10);
+    const seconds = parseFloat(parts[2] || "0");
+
+    return hours > 0 || minutes > 0 || seconds > 0;
+  }
+
+  return false;
+}
 
 export function parseIMEIField(imeiString: string): DeviceInfo[] {
   if (!imeiString || imeiString.trim() === "") return [];
@@ -105,7 +110,7 @@ export function parseIMEIField(imeiString: string): DeviceInfo[] {
 }
 
 export function getCurrentDeviceIMEI(): DeviceInfo {
-  const platform = navigator.platform || "Unknown";
+  const platform = (typeof window !== 'undefined' && window.navigator.platform) || "Unknown";
   return { IMEI: `${platform}:${navigator.userAgent.slice(0, 50)}`, Dispositivo: platform };
 }
 
@@ -121,9 +126,25 @@ export const userApi = {
     const response = await fetchFromBaserow<User>(TABLES.USERS, { filters });
     return response.results[0] || null;
   },
+
+  /**
+   * Valida se o usuário pode logar baseado no tempo restante (campo Restam)
+   */
+  validateSubscription(user: User): { active: boolean; message: string } {
+    if (!user) return { active: false, message: "Usuário não encontrado." };
+    
+    const isAvailable = hasRemainingTime(user.Restam);
+    
+    return {
+      active: isAvailable,
+      message: isAvailable ? "Acesso permitido." : "Sua assinatura expirou."
+    };
+  },
+
   async updateIMEI(userId: number, imeiString: string): Promise<User> {
     return updateRow<User>(TABLES.USERS, userId, { IMEI: imeiString });
   },
+
   async getById(userId: number): Promise<User | null> {
     const url = `${API_URL}/database/rows/table/${TABLES.USERS}/${userId}/?user_field_names=true`;
     try { return await performRequest<User>(url, "GET"); } catch { return null; }
