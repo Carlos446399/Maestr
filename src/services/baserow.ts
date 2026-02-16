@@ -2,15 +2,15 @@
 
 // Se mudar para http://, o script usará o proxy da Vercel automaticamente
 const API_URL = "https://api.baserow.io/api"; 
-const TOKEN = "token_baserow";
+const TOKEN = "X3vVhUh4Adg1aE4VzuUfQlAxhtRv1FoC";
 const PROXY_URL = "https://api-anyflix.vercel.app/api/baserow";
 
 const TABLES = {
-  CONTENTS: 5272,
-  EPISODES: 5273,
-  BANNERS: 5275,
-  USERS: 5276,
-  CATEGORIES: 5274,
+  CONTENTS: 628361,
+  EPISODES: 628366,
+  BANNERS: 404745,
+  USERS: 404749,
+  CATEGORIES: 426882,
 };
 
 // --- Interfaces ---
